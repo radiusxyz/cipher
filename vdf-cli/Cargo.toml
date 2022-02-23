@@ -24,10 +24,13 @@ description = "A command-line interface to the Verifiable Delay Function (VDF) c
 
 [dependencies]
 clap = "^2.32.0"
-classgroup = { path = "../classgroup", version = "^0.1.0" }
-vdf = { path = "../vdf", version = "^0.1.0" }
+# classgroup = { path = "../classgroup", version = "^0.1.0" }
+# vdf = { path = "../vdf", version = "^0.1.0" }
 cipher = { path = "../cipher", version = "^0.1.0" }
+rsa_vdf = { path = "../rsa_vdf", version = "^0.0.1" }
+curv = { path= "../../curv", features =  ["num-bigint"], default-features = false}
 hex = "0.4.3"
 dusk-bytes = "0.1"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
+minstant = { git = "https://github.com/tikv/minstant.git", branch = "master" }

@@ -34,19 +34,19 @@ use sha2::{digest::FixedOutput, Digest, Sha256};
 use std::u16;
 
 fn random_bytes_from_seed(seed: &[u8], byte_count: usize) -> Vec<u8> {
-    assert!(byte_count <= 32 * ((1 << 16) - 1));
-    let mut blob = Vec::with_capacity(byte_count);
-    let mut extra: u16 = 0;
-    while blob.len() < byte_count {
-        let mut hasher = Sha256::new();
-        hasher.input(seed);
-        let extra_bits: [u8; 2] = [((extra & 0xFF00) >> 8) as _, (extra & 0xFF) as _];
-        hasher.input(&extra_bits);
-        blob.extend_from_slice(&hasher.fixed_result()[..]);
-        extra += 1;
-    }
-    blob.resize(byte_count, 0);
-    blob
+  assert!(byte_count <= 32 * ((1 << 16) - 1));
+  let mut blob = Vec::with_capacity(byte_count);
+  let mut extra: u16 = 0;
+  while blob.len() < byte_count {
+    let mut hasher = Sha256::new();
+    hasher.input(seed);
+    let extra_bits: [u8; 2] = [((extra & 0xFF00) >> 8) as _, (extra & 0xFF) as _];
+    hasher.input(&extra_bits);
+    blob.extend_from_slice(&hasher.fixed_result()[..]);
+    extra += 1;
+  }
+  blob.resize(byte_count, 0);
+  blob
 }
 
 /// Create a discriminant from a seed (a byte string) and a bit length (a `u16`).  
@@ -62,105 +62,102 @@ fn random_bytes_from_seed(seed: &[u8], byte_count: usize) -> Vec<u8> {
 /// This function is guaranteed not to panic for any inputs whatsoever, unless
 /// memory allocation fails and the allocator in use panics in that case.
 pub fn create_discriminant<T: BigNumExt>(seed: &[u8], length: u16) -> T {
-    let (mut n, residue) = {
-        // The number of “extra” bits (that don’t evenly fit in a byte)
-        let extra: u8 = (length as u8) & 7;
+  let (mut n, residue) = {
+    // The number of “extra” bits (that don’t evenly fit in a byte)
+    let extra: u8 = (length as u8) & 7;
 
-        // The number of random bytes needed (the number of bytes that hold `length`
-        // bits, plus 2).
-        let random_bytes_len = ((usize::from(length) + 7) >> 3) + 2;
-        let random_bytes = random_bytes_from_seed(seed, random_bytes_len);
-        let (n, last_2) = random_bytes.split_at(random_bytes_len - 2);
-        let numerator = (usize::from(last_2[0]) << 8) + usize::from(last_2[1]);
+    // The number of random bytes needed (the number of bytes that hold `length`
+    // bits, plus 2).
+    let random_bytes_len = ((usize::from(length) + 7) >> 3) + 2;
+    let random_bytes = random_bytes_from_seed(seed, random_bytes_len);
+    let (n, last_2) = random_bytes.split_at(random_bytes_len - 2);
+    let numerator = (usize::from(last_2[0]) << 8) + usize::from(last_2[1]);
 
-        // If there are any extra bits, right shift `n` so that it fits
-        // in `length` bits, discarding the least significant bits.
-        let n = T::from(n) >> usize::from((8 - extra) & 7);
-        (n, RESIDUES[numerator % RESIDUES.len()])
-    };
+    // If there are any extra bits, right shift `n` so that it fits
+    // in `length` bits, discarding the least significant bits.
+    let n = T::from(n) >> usize::from((8 - extra) & 7);
+    (n, RESIDUES[numerator % RESIDUES.len()])
+  };
 
-    n.setbit(usize::from(length - 1));
-    debug_assert!(n >= Zero::zero());
-    let rem = n.frem_u32(M);
+  n.setbit(usize::from(length - 1));
+  debug_assert!(n >= Zero::zero());
+  let rem = n.frem_u32(M);
 
-    // HACK HACK `rust-gmp` doesn’t expose += and -= with i32 or i64
-    if residue > rem {
-        n = n + u64::from(residue - rem);
-    } else {
-        n = n - u64::from(rem - residue);
+  // HACK HACK `rust-gmp` doesn’t expose += and -= with i32 or i64
+  if residue > rem {
+    n = n + u64::from(residue - rem);
+  } else {
+    n = n - u64::from(rem - residue);
+  }
+  debug_assert!(n >= Zero::zero());
+
+  // This generates the smallest prime ≥ n that is of the form n + m*x.
+  loop {
+    // Speed up prime-finding by quickly ruling out numbers
+    // that are known to be composite.
+    let mut sieve = ::bit_vec::BitVec::from_elem(1 << 16, false);
+    for &(p, q) in SIEVE_INFO.iter() {
+      // The reference implementation changes the sign of `n` before taking its
+      // remainder. Instead, we leave `n` as positive, but use ceiling
+      // division instead of floor division.  This is mathematically
+      // equivalent and potentially faster.
+      let mut i: usize = (n.crem_u16(p) as usize * q as usize) % p as usize;
+      while i < sieve.len() {
+        sieve.set(i, true);
+        i += p as usize;
+      }
     }
-    debug_assert!(n >= Zero::zero());
 
-    // This generates the smallest prime ≥ n that is of the form n + m*x.
-    loop {
-        // Speed up prime-finding by quickly ruling out numbers
-        // that are known to be composite.
-        let mut sieve = ::bit_vec::BitVec::from_elem(1 << 16, false);
-        for &(p, q) in SIEVE_INFO.iter() {
-            // The reference implementation changes the sign of `n` before taking its
-            // remainder. Instead, we leave `n` as positive, but use ceiling
-            // division instead of floor division.  This is mathematically
-            // equivalent and potentially faster.
-            let mut i: usize = (n.crem_u16(p) as usize * q as usize) % p as usize;
-            while i < sieve.len() {
-                sieve.set(i, true);
-                i += p as usize;
-            }
+    for (i, x) in sieve.iter().enumerate() {
+      if !x {
+        let q = u64::from(M) * u64::from(i as u32);
+        n = n + q;
+        if n.probab_prime(2) {
+          return -n;
         }
-
-        for (i, x) in sieve.iter().enumerate() {
-            if !x {
-                let q = u64::from(M) * u64::from(i as u32);
-                n = n + q;
-                if n.probab_prime(2) {
-                    return -n;
-                }
-                n = n - q;
-            }
-        }
-        // M is set to a number with many prime factors so the results are more uniform https://eprint.iacr.org/2011/481.pdf
-        // TODO:  Explain previous reference to https://eprint.iacr.org/2011/401.pdf
-        n = n + (u64::from(M) * (1 << 16)) as u64
+        n = n - q;
+      }
     }
+    // M is set to a number with many prime factors so the results are more uniform https://eprint.iacr.org/2011/481.pdf
+    // TODO:  Explain previous reference to https://eprint.iacr.org/2011/401.pdf
+    n = n + (u64::from(M) * (1 << 16)) as u64
+  }
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use classgroup::{gmp_classgroup::GmpClassGroup, ClassGroup};
-    type Mpz = <GmpClassGroup as ClassGroup>::BigNum;
-    use std::str::FromStr;
+  use super::*;
+  use classgroup::{gmp_classgroup::GmpClassGroup, ClassGroup};
+  type Mpz = <GmpClassGroup as ClassGroup>::BigNum;
+  use std::str::FromStr;
 
-    #[test]
-    fn check_discriminant_1() {
-        assert_eq!(
-            create_discriminant::<Mpz>(b"\xaa", 40),
-            (-685_537_176_559i64).into()
-        );
-    }
+  #[test]
+  fn check_discriminant_1() {
+    assert_eq!(create_discriminant::<Mpz>(b"\xaa", 40), (-685_537_176_559i64).into());
+  }
 
-    #[test]
-    fn check_discriminant_3() {
-        assert_eq!(
-            create_discriminant::<Mpz>(b"\xaa", 1024),
-            Mpz::from_str(
-                "-112084717443890964296630631725167420667316836131914185144761\
+  #[test]
+  fn check_discriminant_3() {
+    assert_eq!(
+      create_discriminant::<Mpz>(b"\xaa", 1024),
+      Mpz::from_str(
+        "-112084717443890964296630631725167420667316836131914185144761\
                  7438378168250988242739496385274308134767869324152361453294226\
                  8295868231081182819214054220080323345750407342623884342617809\
                  8794592117225058677336074005099949757067786815439982423354682\
                  0386024058617141397148586038290164093146862666602485017735298\
                  03183"
-            )
-            .unwrap()
-        )
-    }
+      )
+      .unwrap()
+    )
+  }
 
-    #[test]
-    fn check_discriminant_2() {
-        assert_eq!(
-            create_discriminant::<Mpz>(b"\xaa", 2048),
-            -Mpz::from_str(
-                "201493927071865251625903550712920535753645598483515670853547009\
+  #[test]
+  fn check_discriminant_2() {
+    assert_eq!(
+      create_discriminant::<Mpz>(b"\xaa", 2048),
+      -Mpz::from_str(
+        "201493927071865251625903550712920535753645598483515670853547009\
                  878440933309489362800393797428711071833308081461824159206915864\
                  150805748296170245037221957772328044276705571745811271212292422\
                  075849739248257870371300001313586036515879618764093772248760562\
@@ -170,19 +167,16 @@ mod test {
                  034091728887584373727555384075665624624856766441009974642693066\
                  751400054217209981490667208950669417773785631693879782993019167\
                  69407006303085854796535778826115224633447713584423"
-            )
-            .unwrap()
-        );
-    }
-    #[test]
-    fn check_random_bytes() {
-        assert_eq!(
-            &random_bytes_from_seed(b"\xaa", 7),
-            b"\x9f\x9d*\xe5\xe7<\xcb"
-        );
-        assert_eq!(
-            &random_bytes_from_seed(b"\xaa", 258)[..],
-            &b"\x9f\x9d*\xe5\xe7<\xcbq\xa4q\x8e\
+      )
+      .unwrap()
+    );
+  }
+  #[test]
+  fn check_random_bytes() {
+    assert_eq!(&random_bytes_from_seed(b"\xaa", 7), b"\x9f\x9d*\xe5\xe7<\xcb");
+    assert_eq!(
+      &random_bytes_from_seed(b"\xaa", 258)[..],
+      &b"\x9f\x9d*\xe5\xe7<\xcbq\xa4q\x8e\
                    \xbc\xf0\xe3:\xa2\x98\xf8\xbd\xdc\xaa\xcbi\xcb\x10\xff\x0e\xafv\xdb\xec!\xc4K\
                    \xc6Jf\xf3\xa5\xda.7\xb7\xef\x87I\x85\xb8YX\xfc\xf2\x03\xa1\x8f4\xaf`\xab\xae]n\
                    \xcc,g1\x12EI\xc7\xd5\xe2\xfc\x8b\x9a\xde\xd5\xf3\x8f'\xcd\x08\x0fU\xc7\xee\xa85\
@@ -193,6 +187,6 @@ mod test {
                    \x91\xe1V\xed;\x94oJ\xa8 \xa4\x97\xb7K\xce\xc4e\xea\xa2\xbf\x8b\x1f\x90\x87\xc8\
                    \x15\xee\x0e\x0fPC:\xb5\xe1g\x97\xea/_\x86c\xaf\x12Wp\xfd\x11\xdb\x17\xe6\x9f\
                    \xa5\x8a"[..]
-        );
-    }
+    );
+  }
 }

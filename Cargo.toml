@@ -16,6 +16,7 @@ members = [
     "vdf",
     "vdf-cli",
     "classgroup",
+    "rsa_vdf",
 ]
 
 [profile.release]

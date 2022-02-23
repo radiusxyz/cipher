@@ -81,18 +81,17 @@ mod create_discriminant;
 use std::fmt::Debug;
 
 pub use self::{
-    create_discriminant::create_discriminant,
-    proof_pietrzak::{PietrzakVDF, PietrzakVDFParams},
-    proof_wesolowski::{WesolowskiVDF, WesolowskiVDFParams},
+  create_discriminant::create_discriminant,
+  //   proof_pietrzak::{PietrzakVDF, PietrzakVDFParams},
+  proof_wesolowski::{WesolowskiVDF, WesolowskiVDFParams},
 };
 
 /// Message used to report an internal miscalculation of serialization buffer
 /// sizes.
-const INCORRECT_BUFFER_SIZE: &str =
-    "internal error: incorrect buffer size calculation (this is a bug)";
+const INCORRECT_BUFFER_SIZE: &str = "internal error: incorrect buffer size calculation (this is a bug)";
 
 mod proof_of_time;
-mod proof_pietrzak;
+// mod proof_pietrzak;
 mod proof_wesolowski;
 
 /// An empty struct indicating verification failure.
@@ -121,25 +120,25 @@ pub struct InvalidIterations(String);
 ///
 /// This must implement `Clone` and `Eq`.
 pub trait VDFParams: Clone + Eq {
-    type VDF: VDF + Sized;
+  type VDF: VDF + Sized;
 
-    /// Creates an instance of this VDF from the given parameters.
-    ///
-    /// # Performance
-    ///
-    /// This method is expected to be fairly cheap.  For example, it is okay if
-    /// it allocates memory, but it should not perform expensive computations or
-    /// I/O.
-    ///
-    /// # Panics
-    ///
-    /// This method **MUST NOT** fail due to invalid values for `params`.  Such
-    /// errors should be checked by the factory functions for `Self::Params`.
-    ///
-    /// This function **MAY** panic for other reasons.  For example, it is
-    /// allowed to panic if an allocation fails, or if a needed external library
-    /// could not be dynamically loaded.
-    fn new(self) -> Self::VDF;
+  /// Creates an instance of this VDF from the given parameters.
+  ///
+  /// # Performance
+  ///
+  /// This method is expected to be fairly cheap.  For example, it is okay if
+  /// it allocates memory, but it should not perform expensive computations or
+  /// I/O.
+  ///
+  /// # Panics
+  ///
+  /// This method **MUST NOT** fail due to invalid values for `params`.  Such
+  /// errors should be checked by the factory functions for `Self::Params`.
+  ///
+  /// This function **MAY** panic for other reasons.  For example, it is
+  /// allowed to panic if an allocation fails, or if a needed external library
+  /// could not be dynamically loaded.
+  fn new(self) -> Self::VDF;
 }
 
 /// A Verifiable Delay Function (VDF).
@@ -157,91 +156,86 @@ pub trait VDFParams: Clone + Eq {
 /// the need for locking.  However, they **MUST** be `Send` and `Clone`, so that
 /// consumers can duplicate them and send them across threads.
 pub trait VDF: Send + Debug {
-    /// Solve an instance of this VDF, with challenge `challenge` and difficulty
-    /// `difficulty`.
-    ///
-    /// The output is to be returned in a `Vec<u8>`, so it can be stored to disk
-    /// or sent over the network.
-    ///
-    /// # Challenge format
-    ///
-    /// The challenge is an opaque byte string of arbitrary length.
-    /// Implementors **MUST NOT** make any assumptions about its contents,
-    /// and **MUST** produce distinct outputs for distinct challenges
-    /// (except with negiligible probability).
-    ///
-    /// This can be most easily implemented by using the challenge as part of
-    /// the input of a cryptographic hash function.  The VDFs provided in this
-    /// crate use this strategy.
-    ///
-    /// The difficulty must be checked before performing any expensive
-    /// computations.
-    ///
-    /// Most applications will generate the challenge using a
-    /// cryptographically-secure pseudorandom number generator, but implementors
-    /// **MUST NOT** rely on this.  In particular, this function must be secure
-    /// even if `challenge` is chosen by an adversary.  Excessive values for
-    /// `difficulty` may cause excessive resource consumption, but must not
-    /// create any other vulnerabilities.
-    ///
-    /// # Complexity
-    ///
-    /// The VDFs in this crate consume memory that does not depend on
-    /// `difficulty`, and time linearly proportional to `difficulty`.
-    /// Implementors of this trait should document the resource use.
-    ///
-    /// # Purity
-    ///
-    /// This method must have no side effects.  In particular, it must be
-    /// **deterministic**: it must always return the same output for the same
-    /// inputs, except with negligible probability.  Furthermore, while it may
-    /// change `self` via interior mutability, such changes must not affect
-    /// future calls to this method, `Self::check_difficulty`, or
-    /// `Self::verify`.  They *may* affect the `Debug` output.
-    fn solve(&self, challenge: &[u8], difficulty: u64) -> Result<Vec<u8>, InvalidIterations>;
+  /// Solve an instance of this VDF, with challenge `challenge` and difficulty
+  /// `difficulty`.
+  ///
+  /// The output is to be returned in a `Vec<u8>`, so it can be stored to disk
+  /// or sent over the network.
+  ///
+  /// # Challenge format
+  ///
+  /// The challenge is an opaque byte string of arbitrary length.
+  /// Implementors **MUST NOT** make any assumptions about its contents,
+  /// and **MUST** produce distinct outputs for distinct challenges
+  /// (except with negiligible probability).
+  ///
+  /// This can be most easily implemented by using the challenge as part of
+  /// the input of a cryptographic hash function.  The VDFs provided in this
+  /// crate use this strategy.
+  ///
+  /// The difficulty must be checked before performing any expensive
+  /// computations.
+  ///
+  /// Most applications will generate the challenge using a
+  /// cryptographically-secure pseudorandom number generator, but implementors
+  /// **MUST NOT** rely on this.  In particular, this function must be secure
+  /// even if `challenge` is chosen by an adversary.  Excessive values for
+  /// `difficulty` may cause excessive resource consumption, but must not
+  /// create any other vulnerabilities.
+  ///
+  /// # Complexity
+  ///
+  /// The VDFs in this crate consume memory that does not depend on
+  /// `difficulty`, and time linearly proportional to `difficulty`.
+  /// Implementors of this trait should document the resource use.
+  ///
+  /// # Purity
+  ///
+  /// This method must have no side effects.  In particular, it must be
+  /// **deterministic**: it must always return the same output for the same
+  /// inputs, except with negligible probability.  Furthermore, while it may
+  /// change `self` via interior mutability, such changes must not affect
+  /// future calls to this method, `Self::check_difficulty`, or
+  /// `Self::verify`.  They *may* affect the `Debug` output.
+  //   fn solve(&self, challenge: &[u8], difficulty: u64) -> Result<Vec<u8>, InvalidIterations>;
 
-    fn calculate_y(&self, challenge: &[u8], difficulty: u64) -> Result<Vec<u8>, InvalidIterations>;
+  fn calculate_y(&self, challenge: &[u8], difficulty: u64) -> Result<Vec<u8>, InvalidIterations>;
 
-    /// Check that the difficulty is valid.
-    ///
-    /// This must return `Ok` if and only if `difficulty` is valid.  Otherwise,
-    /// it must return `Err`.
-    ///
-    /// # Rationale
-    ///
-    /// It would be more ideomatic Rust to use the type system to enforce that a
-    /// difficulty has been validated before use.  However, I (Demi) have not
-    /// yet figured out an object-safe way to do so.
-    fn check_difficulty(&self, difficulty: u64) -> Result<(), InvalidIterations>;
+  /// Check that the difficulty is valid.
+  ///
+  /// This must return `Ok` if and only if `difficulty` is valid.  Otherwise,
+  /// it must return `Err`.
+  ///
+  /// # Rationale
+  ///
+  /// It would be more ideomatic Rust to use the type system to enforce that a
+  /// difficulty has been validated before use.  However, I (Demi) have not
+  /// yet figured out an object-safe way to do so.
+  fn check_difficulty(&self, difficulty: u64) -> Result<(), InvalidIterations>;
 
-    /// Verifies an alleged solution of this VDF, with challenge `challenge` and
-    /// difficulty `difficulty`.  Return `Ok(())` on success, or
-    /// `Err(InvalidProof)` on failure.
-    ///
-    /// This function *does not* return any extended error information for
-    /// security reasons.  To check that the difficulty is correct, call
-    /// `Self::check_difficulty`.
-    ///
-    /// # Uniqueness of valid solutions
-    ///
-    /// For any `(challenge, difficulty)` tuple, there must be at most one
-    /// `alleged_solution` (as measured by `Eq`) that causes this function to
-    /// return `Ok(())`.  If the difficulty is valid (as determined by
-    /// `check_difficulty`), there must be exactly one such solution; otherwise,
-    /// there must be none.
-    ///
-    /// # Purity
-    ///
-    /// This method must have no side effects.  In particular, it must be
-    /// **deterministic**: it must always return the same output for the same
-    /// inputs.  Furthermore, while it may change `self` via interior
-    /// mutability, such changes must not affect future calls to this method,
-    /// `Self::prove`, or `Self::check_difficulty`.  Such changes **MAY** affect
-    /// debugging output.
-    fn verify(
-        &self,
-        challenge: &[u8],
-        difficulty: u64,
-        alleged_solution: &[u8],
-    ) -> Result<(), InvalidProof>;
+  /// Verifies an alleged solution of this VDF, with challenge `challenge` and
+  /// difficulty `difficulty`.  Return `Ok(())` on success, or
+  /// `Err(InvalidProof)` on failure.
+  ///
+  /// This function *does not* return any extended error information for
+  /// security reasons.  To check that the difficulty is correct, call
+  /// `Self::check_difficulty`.
+  ///
+  /// # Uniqueness of valid solutions
+  ///
+  /// For any `(challenge, difficulty)` tuple, there must be at most one
+  /// `alleged_solution` (as measured by `Eq`) that causes this function to
+  /// return `Ok(())`.  If the difficulty is valid (as determined by
+  /// `check_difficulty`), there must be exactly one such solution; otherwise,
+  /// there must be none.
+  ///
+  /// # Purity
+  ///
+  /// This method must have no side effects.  In particular, it must be
+  /// **deterministic**: it must always return the same output for the same
+  /// inputs.  Furthermore, while it may change `self` via interior
+  /// mutability, such changes must not affect future calls to this method,
+  /// `Self::prove`, or `Self::check_difficulty`.  Such changes **MAY** affect
+  /// debugging output.
+  fn verify(&self, challenge: &[u8], difficulty: u64, alleged_solution: &[u8]) -> Result<(), InvalidProof>;
 }

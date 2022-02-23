@@ -1,0 +1,30 @@
+[package]
+name = "rsa_vdf"
+version = "0.0.1"
+edition = "2018"
+description = "Verifiable Delay Function (Wesolowski 18)"
+authors = [
+    "Omer <omer.shlomovits@gmail.com>",
+]
+repository = "https://github.com/ZenGo-X/vdf"
+
+license = "GPL-3.0-or-later"
+categories = ["cryptography"]
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+# zeroize = "1.0.0"
+# curv = { git = "https://github.com/ZenGo-X/curv", features =  ["num-bigint"] }
+# curv = { tag = "v0.6.0", git = "https://github.com/ZenGo-X/curv", features =  ["num-bigint"], default-features = false}
+curv = { path= "../../curv", features =  ["num-bigint"], default-features = false}
+# curv = { tag = "v0.6.0", git = "https://github.com/ZenGo-X/curv", features =  ["num-bigint"]}
+
+# [dependencies.curv]
+# git = "https://github.com/ZenGo-X/curv"
+# tag = "v0.6.0"
+# version = "^0.6.0"
+# default-features = false
+# features = ["num-bigint"]
